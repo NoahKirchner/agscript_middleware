@@ -1,0 +1,25 @@
+# agscript middleware that allows you to communicate with cobaltstrike using RPC
+
+# Get reading
+# https://sleep.dashnine.org/manual/
+# https://lulz.io/posts/2020/please-don-t-pass-to-exec/
+
+sub client_closure {
+    fork({
+    action("received new connection");
+	while (1) {
+	      local('$buf');
+	      $buf = readb($socket, 4);
+	      if ($buf ne $null) { 
+	      	 action($buf);
+	      }
+    	  }
+    }, $socket => $1);
+}
+
+
+on ready {
+    local('$host');
+    listen(50051, 0, $host, &client_closure);
+    action("awaiting connections on 127.0.0.1:50051");
+}
