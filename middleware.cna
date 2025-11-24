@@ -14,12 +14,16 @@ sub client_closure {
 	      	 action($buf);
 	      }
     	  }
-    }, $socket => $1);
+    }, $socket => $socket);
 }
 
 
 on ready {
-    local('$host');
-    listen(50051, 0, $host, &client_closure);
     action("awaiting connections on 127.0.0.1:50051");
+    # This looks like it wouldn't work properly but actually only maintains a single handle to 50051. Each inbound connection
+    # posseses its own socket and that information gets rightly passed to client_closure.
+    while (1) {
+    	  $socket = listen(50051, 0);
+	  fork(&client_closure, $socket => $socket);
+    }
 }
