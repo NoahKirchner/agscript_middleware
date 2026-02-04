@@ -1,0 +1,40 @@
+global('$MWHOST, $MWPORT, $MWNAME, %MWSHARED');
+#$MWHOST = "127.0.0.1" # This is commented out to show that there are defaults.
+$MWPORT = 50052; # Set the port to something different than default
+$MWNAME = "Example Middleware"; # name the middleware
+%MWSHARED = %( # Define a shared object to pass back and forth from the middleware context and your own library's context.
+  socket_array => @(),
+  sem => semaphore(1),
+);
+
+# Again ensure that the middleware script is included after global definitions
+include(script_resource("middleware.cna"));
+
+# Shows how to use send message to retrieve information remotely off of a heartbeat. From the remote connection, run:
+# `heartbeat_register($socket)`
+# This will work because $socket is in the scope of the middleware's loop, and the %MWSHARED object is being passed back and forth
+# between threads by using semaphore magic. MWSHARED is globally defined, so you can add whatever you want in there for your 
+# personal projects or not define it at all.
+
+# Call this function using the same send_command.sh script, just change the command. I trust your abilities
+# This function is called from inside the fork's context, hence the need for using semaphores. 
+# usage: heartbeat_register($socket)
+sub heartbeat_register {
+  acquire(%MWSHARED['sem']);
+  push(%MWSHARED['socket_array'], $1);
+  release(%MWSHARED['sem']);
+  action("Registered " . $1 . " to the heartbeat test")
+}
+
+# This is a separate thread that we are running. After accessing the shared object we can act on the data within. In this case,
+# we use it to send a message every 5 seconds with sockets.
+on heartbeat_5s {
+  acquire(%MWSHARED['sem']);
+  action(%MWSHARED);
+
+    for ($i = 0; $i < size(%MWSHARED['socket_array']); $i++) {
+        send_message(%MWSHARED['socket_array'][$i], "HEARTBEAT!");
+    }
+    release(%MWSHARED['sem']);
+}
+

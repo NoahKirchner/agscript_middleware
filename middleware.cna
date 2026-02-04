@@ -1,29 +1,105 @@
-# agscript middleware that allows you to communicate with cobaltstrike using RPC
+# agscript middleware that allows you to communicate with cobaltstrike over tcp. Not very complicated but hopefully decently useful
 
 # Get reading
 # https://sleep.dashnine.org/manual/
-# https://lulz.io/posts/2020/please-don-t-pass-to-exec/
+# https://lulz.io/posts/2020/please-don-t-pass-to-exec/ # of course this fucking link is dead
 
-sub client_closure {
-    fork({
-    action("received new connection");
-	while (1) {
-	      local('$buf');
-	      $buf = readb($socket, 4);
-	      if ($buf ne $null) { 
-	      	 action($buf);
-	      }
-    	  }
-    }, $socket => $socket);
+
+# These are the default global values for setting up the socket and whatever name you want the middleware to use for whenever it receives new connections. This way if you are especially
+# autistic you can run multiple with different libraries, provided they are on different ports.
+if ($MWHOST eq $null) {
+   global('$MWHOST');
+   $MWHOST = "127.0.0.1";
+}
+
+if ($MWPORT eq $null) {
+   global('$MWPORT');
+   $MWPORT = 50051;
 }
 
 
+if ($MWNAME eq $null) {
+   global('$MWNAME');
+   $MWNAME = "middleware";
+}
+
+# The main event loop for connections from client (your application) to server (this thing)
+sub client_closure {
+        elog($MWNAME . " received a new connection.");
+        while (1) {
+            local('$countbuf');
+            $countbuf = readb($socket, 8);
+
+            if ($countbuf eq $null) {
+                elog($MWNAME . " dropped a connection");
+                break;
+            }
+
+            local('$length');
+            $length = parseNumber($countbuf, 16);
+
+            if ($length eq $null) {
+                println($MWNAME . " invalid length header $length: " . $length . "$countbuf" . $countbuf);
+                break;
+            }
+
+            local('$buf');
+            $buf = readb($socket, $length);
+
+            if ($buf eq $null) {
+                println($MWNAME . " payload read failed: " . $buf);
+                break;
+            }
+
+	    local('$ret');
+            $ret = eval($buf);
+	    # looks scary but just converts whatever $ret is into a string
+	    $ret = iff($ret eq $null, "", "$ret");
+
+	    send_message($socket, $ret);
+
+        }
+}
+
+# This will send a message back to the relevant socket handle formatted correctly (first 8 characters are length of the message followed by message)
+# usage: send_message($socket, $msg)
+sub send_message {
+    local('$socket $msg $len $header');
+
+    $socket = $1;
+    $msg = $2;
+
+    if ($msg eq $null) {
+        $msg = "";
+    }
+    $msg = "$msg";
+
+    $len = strlen($msg);
+
+    $header = formatNumber($len, 10, 16);
+
+    # pads out to be 8 characters 
+    while (strlen($header) < 8) {
+        $header = "0" . $header;
+    }
+
+    $header = "$header";
+
+    writeb($socket, $header);
+    writeb($socket, $msg);
+
+}
+
+sub listen_for_connections {
+    	elog($MWNAME . " awaiting connections on " . $MWHOST . ":" . $MWPORT);
+	while (1) {
+    	   $socket = listen($MWPORT, 0);
+	   fork(&client_closure, $socket => $socket, $MWNAME => $MWNAME, \%MWSHARED);
+    	  }
+}
+
 on ready {
-    action("awaiting connections on 127.0.0.1:50051");
     # This looks like it wouldn't work properly but actually only maintains a single handle to 50051. Each inbound connection
     # posseses its own socket and that information gets rightly passed to client_closure.
-    while (1) {
-    	  $socket = listen(50051, 0);
-	  fork(&client_closure, $socket => $socket);
-    }
+    fork(&listen_for_connections, $MWNAME => $MWNAME, $MWHOST => $MWHOST, $MWPORT => $MWPORT, \%MWSHARED);
 }

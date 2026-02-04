@@ -1,0 +1,27 @@
+# Here we define the global variables necessary to get the most out of this library. Note that these have default values if you 
+# don't care to change some of them.
+global('$MWHOST, $MWPORT, $MWNAME, %MWSHARED');
+#$MWHOST = "127.0.0.1" # This is commented out to show that there are defaults.
+$MWPORT = 50052; # Set the port to something different than default
+$MWNAME = "Basic Example"; # name the middleware
+#%MWSHARED = We'll get to this later
+
+# Any actions that you define  
+on ready {
+	action("Running on ready before the middleware!");
+}
+
+action("Running before the middleware!")
+
+# Once you include the resource, the middleware will begin listening on the ports and addresses defined above
+include(script_resource("middleware.cna"));
+
+# Proves that the middleware is not blocking
+action("Not blocking!");
+
+# Just a simple test that prints "TEST WORKED" into the event log. This needs to be called over TCP. There's a 
+# bash script in the examples directory, you should just be able to run:
+# `./send_command.sh 'foo();'`
+sub foo {
+	action("TEST WORKED");
+}
