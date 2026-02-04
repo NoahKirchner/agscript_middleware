@@ -39,7 +39,8 @@ sub client_closure {
             $length = parseNumber($countbuf, 16);
 
             if ($length eq $null) {
-                println($MWNAME . " invalid length header $length: " . $length . "$countbuf" . $countbuf);
+	       # I can't get the colors working and I'm too tired to care
+                println("[MIDDLEWARE ERROR]: " . $MWNAME . " invalid length header $length: " . $length . "$countbuf" . $countbuf);
                 break;
             }
 
@@ -47,7 +48,7 @@ sub client_closure {
             $buf = readb($socket, $length);
 
             if ($buf eq $null) {
-                println($MWNAME . " payload read failed: " . $buf);
+                println("[MIDDLEWARE ERROR]: " . $MWNAME . " payload read failed: " . $buf);
                 break;
             }
 
