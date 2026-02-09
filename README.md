@@ -1,3 +1,4 @@
+https://kirchware.com/Building-a-CobaltStrike-AggressorScript-Bridge-for-Any-Language
 # Disclaimer
 While I think this is cool and useful, it's also likely not secure or stable in its default implementation. Feel free to use any code I discuss below or have written, but you should expect to add in your own safety features and potentially fix bugs, as this is certainly very poorly tested.
 
